@@ -66,7 +66,7 @@ def start(message):
 @bot.message_handler(commands=["next_joke"])
 def next_joke(message):
     if len(session.query(Joke).all()):
-        joke = random.choice(session.query(Joke).all())
+        joke = random.choices(session.query(Joke).all(), cum_weights=[joke[0] for joke in session.query(Joke.id).all()])[0]
         markup = types.InlineKeyboardMarkup(row_width=1)
         rate_button = types.InlineKeyboardButton("Оцінити жарт💯", callback_data=f"rate_joke*{joke.id}")
         edit_button = types.InlineKeyboardButton("Редагувати жарт🛠", callback_data=f"edit_joke*{joke.id}")

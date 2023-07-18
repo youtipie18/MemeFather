@@ -45,8 +45,7 @@ bot = telebot.TeleBot(API_KEY)
 
 def is_admin(uid, admin_type="all"):
     admin_status = session.query(User).filter(User.user_id == uid).one().admin_status
-    return admin_status in \
-           ["Admin", "MAIN_ADMIN"] if admin_type == "all" else admin_status == admin_type
+    return admin_status in ["Admin", "MAIN_ADMIN"] if admin_type == "all" else admin_status == admin_type
 
 
 def for_admin(admin_type="all"):
@@ -58,11 +57,12 @@ def for_admin(admin_type="all"):
                     func(message)
                 else:
                     if admin_type == "MAIN_ADMIN":
-                        bot.send_message(message.chat.id,
-                                         "Ця команда тільки для головного адміна, зв'я жіться з іншим головним адміном.")
+                        bot.send_message(message.chat.id, "Ця команда тільки для головного адміна,"
+                                                          " зв'я жіться з іншим головним адміном.")
                     else:
                         bot.send_message(message.chat.id, "Ця команда тільки для адмінів.\n"
-                                                          "Якщо ви хочете бути адміном, то натисніть /send_admin_request")
+                                                          "Якщо ви хочете бути адміном, "
+                                                          "то натисніть /send_admin_request")
             else:
                 raise ValueError(f"Invalid arg type. Got: {type(message)}, expected: {telebot.types.Message}")
 
@@ -102,8 +102,9 @@ def send_admin_request(message):
         else:
             user.admin_status = "Pending"
             session.commit()
-            bot.send_message(message.chat.id,
-                             "Запит надіслано! Коли головний адмін роздивиться вашу заявку та погодить її, ви зможете редагувати та видаляти жарти.")
+            bot.send_message(message.chat.id, "Запит надіслано! "
+                                              "Коли головний адмін роздивиться вашу заявку та погодить її,"
+                                              " ви зможете редагувати та видаляти жарти.")
     except sqlalchemy.orm.exc.NoResultFound:
         bot.send_message(message.chat.id, "Користувача не знайдено. Можливо ви не зареєстровані, натисніть /start")
 

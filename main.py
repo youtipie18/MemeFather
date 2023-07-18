@@ -85,7 +85,10 @@ def start(message):
         session.add(user)
         session.commit()
     else:
-        print("User already registered. Proceeding with command list")
+        print("User already registered. Updating their name")
+        existing_user = session.query(User).filter(User.user_id == message.from_user.id)
+        existing_user.full_name = user.full_name
+        session.commit()
     msg = f"Вітаю {message.from_user.first_name}!\n" \
           f"Настав час справжніх жартів.\n" \
           f"Натисніть /next_joke щоб отримати випадковий жарт.\n" \

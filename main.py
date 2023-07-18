@@ -44,38 +44,31 @@ bot = telebot.TeleBot(API_KEY)
 
 
 def is_admin(uid, admin_type="all"):
-    return session.query(User).filter(User.user_id == uid).one().admin_status in \
-           ["Admin", "MAIN_ADMIN"] if admin_type == "all" else admin_type
+    admin_status = session.query(User).filter(User.user_id == uid).one().admin_status
+    return admin_status in \
+           ["Admin", "MAIN_ADMIN"] if admin_type == "all" else admin_status == admin_type
 
 
-def for_admin(func):
-    def wrapper(*args):
-        message = args[0]
-        if type(message) == telebot.types.Message:
-            if is_admin(message.from_user.id):
-                func(message)
+def for_admin(admin_type="all"):
+    def decorator(func):
+        def wrapper(*args):
+            message = args[0]
+            if type(message) == telebot.types.Message:
+                if is_admin(message.from_user.id, admin_type):
+                    func(message)
+                else:
+                    if admin_type == "MAIN_ADMIN":
+                        bot.send_message(message.chat.id,
+                                         "Ця команда тільки для головного адміна, зв'я жіться з іншим головним адміном.")
+                    else:
+                        bot.send_message(message.chat.id, "Ця команда тільки для адмінів.\n"
+                                                          "Якщо ви хочете бути адміном, то натисніть /send_admin_request")
             else:
-                bot.send_message(message.chat.id, "Ця команда тільки для адмінів.\n"
-                                                  "Якщо ви хочете бути адміном, то натисніть /send_admin_request")
-        else:
-            raise ValueError(f"Invalid arg type. Got: {type(message)}, expected: {telebot.types.Message}")
+                raise ValueError(f"Invalid arg type. Got: {type(message)}, expected: {telebot.types.Message}")
 
-    return wrapper
+        return wrapper
 
-
-def for_main_admin(func):
-    def wrapper(*args):
-        message = args[0]
-        if type(message) == telebot.types.Message:
-            if is_admin(message.from_user.id, admin_type="MAIN_ADMIN"):
-                func(message)
-            else:
-                bot.send_message(message.chat.id, "Ця команда тільки для головного адміна.\n"
-                                                  "Зв'яжіться з іним головним адміном, щоб отримати права доступу.")
-        else:
-            raise ValueError(f"Invalid arg type. Got: {type(message)}, expected: {telebot.types.Message}")
-
-    return wrapper
+    return decorator
 
 
 @bot.message_handler(commands=["start"])
@@ -116,7 +109,7 @@ def send_admin_request(message):
 
 
 @bot.message_handler(commands=["show_admins"])
-@for_main_admin
+@for_admin(admin_type="MAIN_ADMIN")
 def show_admins(message):
     admins = session.query(User).filter(
         sqlalchemy.and_(User.admin_status.in_(["MAIN_ADMIN", "Admin"]), User.user_id != message.from_user.id)).all()
@@ -147,7 +140,7 @@ def delete_admin(call):
 
 
 @bot.message_handler(commands=["show_requests"])
-@for_main_admin
+@for_admin(admin_type="MAIN_ADMIN")
 def show_requests(message):
     requests = session.query(User).filter(User.admin_status == "Pending").all()
     if requests:
@@ -256,7 +249,7 @@ def delete_joke(joke_to_edit):
 
 
 @bot.message_handler(commands=["add_joke"])
-@for_admin
+@for_admin()
 def add_joke(message):
     bot.send_message(message.chat.id, "Введіть ваш жарт:")
     bot.register_next_step_handler(message, add_joke_to_db)

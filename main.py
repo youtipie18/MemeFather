@@ -85,7 +85,8 @@ def start(message):
     msg = f"Вітаю {message.from_user.first_name}!\n" \
           f"Настав час справжніх жартів.\n" \
           f"Натисніть /next_joke щоб отримати випадковий жарт.\n" \
-          f"{'Натисніть /add_joke щоб додати новий жарт(Тільки для адмінів).' if is_admin(message.from_user.id) else ''}\n" \
+          f"{'Натисніть /add_joke щоб додати новий жарт.' if is_admin(message.from_user.id) else ''}\n" \
+          f"{'Натисніть /show_jokes щоб переглянути усі жарти.' if is_admin(message.from_user.id) else ''}\n" \
           f"{'Натисніть /show_requests щоб переглянути запити на адмін права.' if is_admin(message.from_user.id, admin_type='MAIN_ADMIN') else ''}\n" \
           f"{'Натисніть /show_admins щоб переглянути дійсних адмінів .' if is_admin(message.from_user.id, admin_type='MAIN_ADMIN') else ''}"
     bot.send_message(message.chat.id, f"{msg}")
@@ -176,6 +177,35 @@ def admin_request_callback(call):
                          "Користувача не знайдено, можливо його прийняв уже інший головний адмін?")
 
 
+@bot.message_handler(commands=["show_jokes"])
+@for_admin()
+def show_jokes(message):
+    jokes = session.query(Joke).all()
+    if jokes:
+        for joke in jokes:
+            expand_markup = types.InlineKeyboardMarkup()
+            expand_markup.add(types.InlineKeyboardButton("...", callback_data=f"expand*{joke.joke_id}"))
+            bot.send_message(message.chat.id, joke.content, reply_markup=expand_markup)
+    else:
+        bot.send_message(message.chat.id,
+                         "На жаль жартів не існує, йди поплач або скажи адміну нехай додасть новий жарт!")
+
+
+@bot.callback_query_handler(func=lambda call: "expand*" in call.data)
+def expand_joke_content(call):
+    try:
+        joke_id = int(call.data.split("*")[-1])
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        edit_button = types.InlineKeyboardButton("Редагувати жарт🛠", callback_data=f"edit_joke*{joke_id}")
+        delete_button = types.InlineKeyboardButton("Видалити жарт⚰", callback_data=f"delete_joke*{joke_id}")
+        markup.add(edit_button, delete_button)
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                      reply_markup=markup)
+    except sqlalchemy.exc.NoResultFound:
+        bot.send_message(call.message.chat.id,
+                         "Жарту не знайдено. Можливо такий жарт було щойно видалено Вами або іншим адміном?")
+
+
 @bot.message_handler(commands=["next_joke"])
 def next_joke(message):
     if len(session.query(Joke).all()):
@@ -189,7 +219,7 @@ def next_joke(message):
             markup.add(rate_button, edit_button, delete_button)
         else:
             markup.add(rate_button)
-        bot.send_message(message.chat.id, f"Жарт №{joke.joke_id}\n" + joke.content, reply_markup=markup)
+        bot.send_message(message.chat.id, joke.content, reply_markup=markup)
     else:
         bot.send_message(message.chat.id,
                          "На жаль жартів не існує, йди поплач або скажи адміну нехай додасть новий жарт!")
@@ -213,6 +243,7 @@ def change_joke(call):
             bot.register_next_step_handler(call.message, edit_content_joke, joke_to_edit)
         elif data == "delete_joke" and is_admin(call.message.chat.id):
             delete_joke(joke_to_edit)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
             bot.send_message(call.message.chat.id, "Жарт успішно видалено!")
     except sqlalchemy.exc.NoResultFound:
         bot.send_message(call.message.chat.id,
